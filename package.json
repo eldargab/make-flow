@@ -1,0 +1,23 @@
+{
+  "name": "make-flow",
+  "version": "0.0.1",
+  "description": "Build systems style control flow",
+  "scripts": {
+    "test": "mocha -R spec"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/eldargab/make-flow.git"
+  },
+  "keywords": [
+    "async",
+    "control flow"
+  ],
+  "devDependencies": {
+    "test-log": "*",
+    "mocha": "*",
+    "should": "*"
+  },
+  "author": "Eldar Gabdullin <eldargab@gmail.com>",
+  "license": "MIT"
+}

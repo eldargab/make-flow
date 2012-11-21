@@ -1,4 +1,4 @@
 make-flow
 =========
 
-Make style control flow util
+Build systems style control flow util.
