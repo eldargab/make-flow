@@ -114,7 +114,7 @@ Promise.prototype.done = function (err, val) {
     val = val === undefined ? null : val
     this.flow[this.task] = val
   }
-  delete this.flow['_promise_' + this.task] // cleanup
+  this.flow['_promise_' + this.task] = null // cleanup
   for (var i = 0; i < this.callbacks.length; i++) {
     this.callbacks[i].call(this.flow, err, val)
   }
