@@ -13,6 +13,9 @@
     "async",
     "control flow"
   ],
+  "dependencies": {
+    "parse-fn-args": "*"
+  },
   "devDependencies": {
     "test-log": "*",
     "mocha": "*",

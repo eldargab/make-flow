@@ -1,6 +1,6 @@
 var should = require('should')
 var Log = require('test-log')
-var Flow = require('../lib/index')
+var Flow = require('..')
 
 describe('make-flow', function () {
   var flow, log
