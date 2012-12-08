@@ -103,15 +103,6 @@ describe('make-flow', function () {
       d_end()
       log.should.equal('c b d a done')
     })
-
-    it('Should call parent for unknown tasks', function (done) {
-      var parent = new Flow
-      parent.def('a', function () { return 'a' })
-      flow.parent(parent).eval('a', function (err, val) {
-        val.should.equal('a')
-        done()
-      })
-    })
   })
 
   describe('.run()', function () {

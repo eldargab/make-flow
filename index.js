@@ -43,25 +43,13 @@ Flow.prototype.set = function (name, val) {
   return this
 }
 
-Flow.prototype.parent = function (obj) {
-  this._parent = obj
-  return this
-}
-
 
 function Promise (flow, task) {
   this.flow = flow
   this.task = task
   this.fn = this.flow['_fn_' + task]
-  if (this.fn) {
-    this.deps = this.flow['_deps_' + task]
-  } else {
-    this.fn = this.flow._parent && function (done) {
-      this._parent.eval(task, done)
-    }
-    if (!this.fn) throw new Error('Task "' + task + '" is not defined')
-    this.deps = ['done']
-  }
+  if (!this.fn) throw new Error('Task "' + task + '" is not defined')
+  this.deps = this.flow['_deps_' + task]
   this.callbacks = []
 }
 
