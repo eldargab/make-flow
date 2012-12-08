@@ -33,9 +33,7 @@ Flow.prototype.eval = function (task, cb) {
 }
 
 Flow.prototype.run = function (task, cb) {
-  var instance = Object.create(this)
-  task && instance.eval(task, cb)
-  return instance
+  return Object.create(this)
 }
 
 Flow.prototype.set = function (name, val) {
