@@ -2,20 +2,20 @@ var should = require('should')
 var Log = require('test-log')
 var Flow = require('..')
 
-describe('make-flow', function () {
-  var flow, log
+describe('make-app', function () {
+  var app, log
 
   beforeEach(function () {
-    flow = new Flow
+    app = new Flow
     log = Log()
   })
 
   describe('.eval(task, [cb])', function () {
     it('Should call task function', function (done) {
-      flow.def('foo', function () {
+      app.def('foo', function () {
         return 'bar'
       })
-      flow.eval('foo', function (err, val) {
+      app.eval('foo', function (err, val) {
         val.should.equal('bar')
         done()
       })
@@ -23,49 +23,49 @@ describe('make-flow', function () {
 
     it('Should treat task with <done> argument as async', function (done) {
       var end
-      flow.def('foo', function (done) {
+      app.def('foo', function (done) {
         end = done
       })
-      flow.eval('foo', function (err, val) {
+      app.eval('foo', function (err, val) {
         val.should.equal('ok')
         done()
       })
       end(null, 'ok')
     })
 
-    it('Should call callback with <this> set to <flow>', function () {
-      flow.def('foo', function () {
+    it('Should call callback with <this> set to <app>', function () {
+      app.def('foo', function () {
         return 'bar'
       }).eval('foo', function () {
-        this.should.equal(flow)
+        this.should.equal(app)
       })
     })
 
-    it('Should call task with `this` set to flow', function (done) {
-      flow.def('foo', function () {
-        this.should.equal(flow)
+    it('Should call task with `this` set to app', function (done) {
+      app.def('foo', function () {
+        this.should.equal(app)
         done()
       }).eval('foo')
     })
 
     it('Should store result in <this[task_name]>', function () {
-      flow.def('a', function () {
+      app.def('a', function () {
         return 'b'
       })
-      should.ok(flow.a === undefined)
-      flow.eval('a')
-      flow.a.should.equal('b')
+      should.ok(app.a === undefined)
+      app.eval('a')
+      app.a.should.equal('b')
     })
 
     it('Should set <this[task_name]> to <null> when the result is <undefined>', function () {
-      flow.def('undefined', function () {}).eval('undefined')
-      should.ok(flow['undefined'] === null)
+      app.def('undefined', function () {}).eval('undefined')
+      should.ok(app['undefined'] === null)
     })
 
     it('Should not call task function when <this[task_name]> is not <undefined>', function (done) {
-      flow.hello = 10
-      flow.def('hello', log.fn('hello'))
-      flow.eval('hello', function (err, hello) {
+      app.hello = 10
+      app.def('hello', log.fn('hello'))
+      app.eval('hello', function (err, hello) {
         hello.should.equal(10)
         log.should.be.empty
         done()
@@ -75,7 +75,7 @@ describe('make-flow', function () {
     it('Should evaluate all task dependencies before evaluating task itself', function () {
       var b_end, c_end, d_end
 
-      flow
+      app
         .def('a', function (b, c, d) {
           log('a')
         })
@@ -107,21 +107,49 @@ describe('make-flow', function () {
 
   describe('.run()', function () {
     it('Should create new instance with everything been inherited', function () {
-      flow.def('foo', function () {
+      app.def('foo', function () {
         return 'bar'
       })
-      var New = flow.run().eval('foo')
+      var New = app.run().eval('foo')
       New.foo.should.equal('bar')
-      should.not.exist(flow.foo)
+      should.not.exist(app.foo)
+    })
+  })
+
+  describe('Layers', function () {
+    it('Task should be bound to its layer', function () {
+      app
+        .layer('app')
+        .def('app', 'setup', function () {
+          return 'setup'
+        })
+        .def('request', 'user', function () {
+          return 'user'
+        })
+        .def('response', function (user, setup) {
+          return user + setup
+        })
+
+      var req = app.run().layer('request')
+
+      req.eval('response')
+
+      req.response.should.equal('usersetup')
+      req.user.should.equal('user')
+      req.setup.should.equal('setup')
+
+      app.setup.should.equal('setup')
+      should.not.exist(app.user)
+      should.not.exist(app.response)
     })
   })
 
   describe('Error handling', function () {
     it('Should catch task exceptions', function (done) {
-      flow.def('hello', function () {
+      app.def('hello', function () {
         throw 'hello error'
       })
-      flow.eval('hello', function (err) {
+      app.eval('hello', function (err) {
         err.should.equal('hello error')
         done()
       })

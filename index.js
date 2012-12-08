@@ -1,16 +1,35 @@
-var parse = require('parse-fn-args')
+var parseArgs = require('parse-fn-args')
 
 module.exports = Flow
 
 function Flow () {}
 
-Flow.prototype.def = function (task, deps, fn) {
-  if (typeof deps == 'function') {
+Flow.prototype.def = function (layer, task, deps, fn) {
+  if (typeof task != 'string') { // allow layer omission
+    fn = deps
+    deps = task
+    task = layer
+    layer = null
+  }
+
+  if (typeof deps == 'function') { // allow implicit deps
     fn = deps
     deps = fn.deps
   }
-  this['_fn_' + task] = fn || function noop () {}
-  this['_deps_' + task] = deps || parse(fn)
+
+  fn = fn || function noop () {}
+  deps = deps || parseArgs(fn)
+
+  this['_task_' + task] = {
+    fn: fn,
+    deps: deps,
+    layer: layer
+  }
+  return this
+}
+
+Flow.prototype.layer = function (name) {
+  this.name = name
   return this
 }
 
@@ -21,13 +40,13 @@ Flow.prototype.eval = function (task, cb) {
       : cb.call(this, null, this[task])
     return this
   }
-  var promise = '_promise_' + task
-  if (!this[promise]) {
-    this[promise] = new Promise(this, task)
-    cb && this[promise].ondone(cb)
-    this[promise].eval()
+  var eval = '_evaluation_' + task
+  if (!this[eval]) {
+    new Evaluation(this, cb)
+      .task(task)
+      .start()
   } else {
-    cb && this[promise].ondone(cb)
+    cb && this[eval].ondone(cb)
   }
   return this
 }
@@ -42,77 +61,99 @@ Flow.prototype.set = function (name, val) {
 }
 
 
-function Promise (flow, task) {
+function Evaluation (flow, cb) {
   this.flow = flow
-  this.task = task
-  this.fn = this.flow['_fn_' + task]
-  if (!this.fn) throw new Error('Task "' + task + '" is not defined')
-  this.deps = this.flow['_deps_' + task]
   this.callbacks = []
+  this.deps = []
+  cb && this.ondone(cb)
 }
 
-Promise.prototype.ondone = function (cb) {
+Evaluation.prototype.ondone = function (cb) {
   this.callbacks.push(cb)
 }
 
-Promise.prototype.eval = function () {
-  this.deps.length ? this.evalWithDeps(0) : this.exec()
+Evaluation.prototype.task = function (name) {
+  this.name = name
+  this.t = this.flow['_task_' + name]
+  if (!this.t) return this.done('Task "' + this.name + '" is not defined')
+  this.setApp()
+  this.app['_eval_' + this.name] = this
+  return this
 }
 
-Promise.prototype.evalWithDeps = function (index) {
-  var sync = true, self = this
+Evaluation.prototype.setApp = function () {
+  if (!this.t.layer) return this.app = this.flow
+  var app = this.flow
+  while (app.name && (app.name != this.t.layer || !app.hasOwnProperty('name'))) {
+    app = app.__proto__
+  }
+  this.app = app.name == this.t.layer ? app : this.flow
+}
+
+Evaluation.prototype.start = function () {
+  this.evalDeps(0)
+}
+
+Evaluation.prototype.evalDeps = function (index) {
+  var sync = true,
+      self = this,
+      deps = this.t.deps
+
   while (sync) {
-    var dep = this.deps[index]
+    var dep = deps[index]
     if (!dep) return this.exec()
+
     if (dep == 'done') {
       this.async = true
       this.deps[index++] = this.done.bind(this)
       continue
     }
-    var val = this.flow[dep]
+
+    var val = this.app[dep]
     if (val !== undefined) {
       if (val instanceof Error) return this.done(val)
       this.deps[index++] = val
       continue
     }
+
     var done = false
-    this.flow.eval(dep, function (err, val) {
+
+    this.app.eval(dep, function (err, val) {
       if (err) return self.done(err)
       done = true
       self.deps[index++] = val
       if (sync) return
-      self.deps.length > index // safe stack space if it's easy to safe
-        ? self.evalWithDeps(index)
-        : self.exec()
+      self.evalDeps(index)
     })
+
     sync = done
   }
 }
 
-Promise.prototype.exec = function () {
+Evaluation.prototype.exec = function () {
   try {
     if (this.async) {
-      this.fn.apply(this.flow, this.deps)
+      this.t.fn.apply(this.app, this.deps)
     } else {
-      this.done(null, this.fn.apply(this.flow, this.deps))
+      this.done(null, this.t.fn.apply(this.app, this.deps))
     }
   } catch (e) {
     this.done(e)
   }
 }
 
-Promise.prototype.done = function (err, val) {
+Evaluation.prototype.done = function (err, val) {
   if (err != null) {
     if (!err instanceof Error) {
       err = new Error(String(err))
     }
-    err.task = err.task || this.task
-    this.flow[this.task] = err
+    err.task = err.task || this.name
+    this.app[this.name] = err
   } else {
     val = val === undefined ? null : val
-    this.flow[this.task] = val
+    this.app[this.name] = val
   }
-  this.flow['_promise_' + this.task] = null // cleanup
+  this.app['_evaluation_' + this.name] = null // cleanup
   for (var i = 0; i < this.callbacks.length; i++) {
     this.callbacks[i].call(this.flow, err, val)
   }
