@@ -147,10 +147,10 @@ describe('make-app', function () {
   describe('Error handling', function () {
     it('Should catch task exceptions', function (done) {
       app.def('hello', function () {
-        throw 'hello error'
+        throw new Error('hello error')
       })
       app.eval('hello', function (err) {
-        err.should.equal('hello error')
+        err.message.should.equal('hello error')
         done()
       })
     })
