@@ -154,6 +154,75 @@ describe('make-app', function () {
         done()
       })
     })
+
+    it('Should catch async errors', function (done) {
+      app.def('foo', function (done) {
+        done(new Error('foo error'))
+      }).eval('foo', function (err) {
+        err.message.should.equal('foo error')
+        done()
+      })
+    })
+
+    describe('Error object', function () {
+      it('Should always be an instance of Error', function (done) {
+        app.def('foo', function () {
+          throw 'foo'
+        }).eval('foo', function (err) {
+          err.should.be.an.instanceof(Error)
+          err.message.should.equal('foo')
+          done()
+        })
+      })
+
+      describe('._task', function () {
+        describe('Should be a name of throwing task', function () {
+          it('Dependency case', function (done) {
+            app
+            .def('foo', function () {
+              throw new Error('error')
+            }).def('bar', function (foo) {
+            }).eval('bar', function (err) {
+              err._task.should.equal('foo')
+              done()
+            })
+          })
+          it('External error case', function (done) {
+            app.def('foo', function () {
+              var err = new Error('error')
+              err._task = 'baz'
+              throw err
+            }).eval('foo', function (err) {
+              err._task.should.equal('foo')
+              done()
+            })
+          })
+        })
+      })
+
+      describe('._stack', function () {
+        describe('Should be a concatenation of previous value and throwing task', function () {
+          it('no previous value', function (done) {
+            app.def('foo', function () {
+              throw new Error('hi')
+            }).eval('foo', function (err) {
+              err._stack.should.equal('foo')
+              done()
+            })
+          })
+          it('with previous value', function (done) {
+            app.def('foo', function () {
+              var err = new Error('hi')
+              err._stack = 'baz'
+              throw err
+            }).eval('foo', function (err) {
+              err._stack.should.equal('foo.baz')
+              done()
+            })
+          })
+        })
+      })
+    })
   })
 })
 

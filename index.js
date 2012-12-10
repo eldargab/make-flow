@@ -111,7 +111,7 @@ Evaluation.prototype.evalDeps = function (index) {
 
     var val = this.app[dep]
     if (val !== undefined) {
-      if (val instanceof Error) return this.done(val)
+      if (val instanceof Error) return this.depError(val)
       this.deps[index++] = val
       continue
     }
@@ -119,7 +119,7 @@ Evaluation.prototype.evalDeps = function (index) {
     var done = false
 
     this.app.eval(dep, function (err, val) {
-      if (err) return self.done(err)
+      if (err) return self.depError(err)
       done = true
       self.deps[index++] = val
       if (sync) return
@@ -157,7 +157,8 @@ Evaluation.prototype.done = function (err, val) {
     if (!(err instanceof Error)) {
       err = new Error(String(err))
     }
-    err.task = err.task || this.name
+    err._task = this.name
+    err._stack = err._stack ? this.name + '.' + err._stack : this.name
     this.app[this.name] = err
   } else {
     val = val === undefined ? null : val
@@ -166,6 +167,13 @@ Evaluation.prototype.done = function (err, val) {
   this.app['_evaluation_' + this.name] = null // cleanup
   for (var i = 0; i < this.callbacks.length; i++) {
     this.callbacks[i].call(this.flow, err, val)
+  }
+}
+
+Evaluation.prototype.depError = function (err) {
+  this.app['_evaluation_' + this.name] = null // cleanup
+  for (var i = 0; i < this.callbacks.length; i++) {
+    this.callbacks[i].call(this.flow, err)
   }
 }
 
