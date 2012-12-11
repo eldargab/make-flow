@@ -44,7 +44,6 @@ Flow.prototype.eval = function (task, cb) {
   if (!this[eval]) {
     new Evaluation(this, cb)
       .task(task)
-      .start()
   } else {
     cb && this[eval].ondone(cb)
   }
@@ -75,10 +74,10 @@ Evaluation.prototype.ondone = function (cb) {
 Evaluation.prototype.task = function (name) {
   this.name = name
   this.t = this.flow['_task_' + name]
-  if (!this.t) return this.done('Task "' + this.name + '" is not defined')
+  if (!this.t) return this.unknownTask()
   this.setApp()
   this.app['_eval_' + this.name] = this
-  return this
+  this.evalDeps(0)
 }
 
 Evaluation.prototype.setApp = function () {
@@ -88,10 +87,6 @@ Evaluation.prototype.setApp = function () {
     app = app.__proto__
   }
   this.app = app.name == this.t.layer ? app : this.flow
-}
-
-Evaluation.prototype.start = function () {
-  this.evalDeps(0)
 }
 
 Evaluation.prototype.evalDeps = function (index) {
@@ -111,7 +106,7 @@ Evaluation.prototype.evalDeps = function (index) {
 
     var val = this.app[dep]
     if (val !== undefined) {
-      if (val instanceof Error) return this.depError(val)
+      if (val instanceof Error) return this.end(val)
       this.deps[index++] = val
       continue
     }
@@ -119,7 +114,7 @@ Evaluation.prototype.evalDeps = function (index) {
     var done = false
 
     this.app.eval(dep, function (err, val) {
-      if (err) return self.depError(err)
+      if (err) return self.end(err)
       done = true
       self.deps[index++] = val
       if (sync) return
@@ -164,16 +159,19 @@ Evaluation.prototype.done = function (err, val) {
     val = val === undefined ? null : val
     this.app[this.name] = val
   }
-  this.app['_evaluation_' + this.name] = null // cleanup
+  this.end(err, val)
+}
+
+Evaluation.prototype.unknownTask = function () {
+  var err = new Error('Task <' + this.name + '> is not defined.')
+  err._task = err._stack = this.name
+  this.end(err)
+}
+
+Evaluation.prototype.end = function (err, val) {
+  this.ended = true
+  if (this.app) this.app['_evaluation_' + this.name] = null // cleanup
   for (var i = 0; i < this.callbacks.length; i++) {
     this.callbacks[i].call(this.flow, err, val)
   }
 }
-
-Evaluation.prototype.depError = function (err) {
-  this.app['_evaluation_' + this.name] = null // cleanup
-  for (var i = 0; i < this.callbacks.length; i++) {
-    this.callbacks[i].call(this.flow, err)
-  }
-}
-

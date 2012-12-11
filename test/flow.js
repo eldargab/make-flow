@@ -103,6 +103,16 @@ describe('make-app', function () {
       d_end()
       log.should.equal('c b d a done')
     })
+
+    it('Should return error if task is not defined', function (done) {
+      app.eval('bar', function (err) {
+        err.message.should.match(/bar/)
+        err.message.should.match(/not defined/)
+        err._task.should.equal('bar')
+        err._stack.should.equal('bar')
+        done()
+      })
+    })
   })
 
   describe('.run()', function () {
