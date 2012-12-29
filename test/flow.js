@@ -2,12 +2,18 @@ var should = require('should')
 var Log = require('test-log')
 var Flow = require('..')
 
-describe('make-app', function () {
+describe('make-flow', function () {
   var app, log
 
   beforeEach(function () {
     app = new Flow
     log = Log()
+  })
+
+  describe('Constructor', function () {
+    it('Should work as factory', function () {
+      Flow().should.be.an.instanceOf(Flow)
+    })
   })
 
   describe('.eval(task, [cb])', function () {

@@ -2,7 +2,11 @@ var parseArgs = require('parse-fn-args')
 
 module.exports = Flow
 
-function Flow () {}
+function Flow () {
+  if (!(this instanceof Flow)) {
+    return new Flow
+  }
+}
 
 Flow.prototype.def = function (layer, task, deps, fn) {
   if (typeof task != 'string') { // allow layer omission
