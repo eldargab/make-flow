@@ -23,7 +23,7 @@ Flow.prototype.def = function (layer, task, deps, fn) {
   this['_task_' + task] = {
     fn: fn,
     deps: deps,
-    layer: layer
+    layer: layer || this._at
   }
   return this
 }
@@ -31,6 +31,15 @@ Flow.prototype.def = function (layer, task, deps, fn) {
 Flow.prototype.layer = function (name) {
   this.name = name
   return this
+}
+
+Flow.prototype.at = function (layer, fn) {
+  this._at = layer
+  try {
+    fn(this)
+  } finally {
+    this._at = null
+  }
 }
 
 Flow.prototype.eval = function (task, cb) {

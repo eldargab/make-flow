@@ -152,8 +152,35 @@ describe('make-app', function () {
       should.not.exist(app.user)
       should.not.exist(app.response)
     })
-  })
 
+    describe('.at(layer, fn)', function () {
+      it('Should bound all tasks to <layer>', function () {
+        app.at('app', function (fn) {
+          fn.def('foo', function () {
+            return 'foo'
+          })
+        })
+        app.layer('app')
+        app.run().eval('foo')
+        app.should.have.ownProperty('foo')
+        app.foo.should.equal('foo')
+      })
+
+      it('Should not clobber layer specified explicitly', function () {
+        app.at('app', function (fn) {
+          fn.def('req', 'foo', function () {
+            return 'foo'
+          })
+        })
+        app.layer('app')
+        var req = app.run().layer('req')
+        req.run().eval('foo')
+        app.should.not.have.property('foo')
+        req.should.have.ownProperty('foo')
+        req.foo.should.equal('foo')
+      })
+    })
+  })
   describe('Error handling', function () {
     it('Should catch task exceptions', function (done) {
       app.def('hello', function () {
