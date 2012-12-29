@@ -185,6 +185,10 @@ describe('make-flow', function () {
         req.should.have.ownProperty('foo')
         req.foo.should.equal('foo')
       })
+
+      it('Should return <this>', function () {
+        app.at('foo', function () {}).should.equal(app)
+      })
     })
   })
   describe('Error handling', function () {

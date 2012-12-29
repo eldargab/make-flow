@@ -44,6 +44,7 @@ Flow.prototype.at = function (layer, fn) {
   } finally {
     this._at = null
   }
+  return this
 }
 
 Flow.prototype.eval = function (task, cb) {
