@@ -1,0 +1,9 @@
+{
+  "name": "make-flow",
+  "version": "0.4.1",
+  "description": "Make style control flow",
+  "keywords": ["async", "flow", "util"],
+  "scripts": [
+    "index.js"
+  ]
+}

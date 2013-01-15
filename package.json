@@ -1,6 +1,6 @@
 {
   "name": "make-flow",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Make style control flow. Good for complex functions.",
   "scripts": {
     "test": "mocha -R spec"
