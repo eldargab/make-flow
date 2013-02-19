@@ -3,6 +3,9 @@
   "version": "0.4.1",
   "description": "Make style control flow",
   "keywords": ["async", "flow", "util"],
+  "dependencies": {
+    "eldargab/parse-fn-args": "*"
+  },
   "scripts": [
     "index.js"
   ]
