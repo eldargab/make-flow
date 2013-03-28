@@ -2,18 +2,18 @@ var parseArgs = require('parse-fn-args')
 
 module.exports = Flow
 
-function Flow () {
+function Flow() {
   if (!(this instanceof Flow)) {
     return new Flow
   }
 }
 
-Flow.prototype.set = function (name, val) {
+Flow.prototype.set = function(name, val) {
   this[name] = val
   return this
 }
 
-Flow.prototype.def = function (layer, task, deps, fn) {
+Flow.prototype.def = function(layer, task, deps, fn) {
   if (typeof task != 'string') { // allow layer omission
     fn = deps
     deps = task
@@ -26,7 +26,7 @@ Flow.prototype.def = function (layer, task, deps, fn) {
     deps = fn.deps
   }
 
-  fn = fn || function noop () {}
+  fn = fn || function noop() {}
   deps = deps || parseArgs(fn)
 
   this['_task_' + task] = {
@@ -39,12 +39,12 @@ Flow.prototype.def = function (layer, task, deps, fn) {
   return this
 }
 
-Flow.prototype.layer = function (name) {
+Flow.prototype.layer = function(name) {
   this._layer = name
   return this
 }
 
-Flow.prototype.at = function (layer, fn) {
+Flow.prototype.at = function(layer, fn) {
   var prev = this._at
   this._at = layer
   try {
@@ -55,11 +55,11 @@ Flow.prototype.at = function (layer, fn) {
   return this
 }
 
-Flow.prototype.run = function (task, cb) {
+Flow.prototype.run = function(task, cb) {
   return Object.create(this)
 }
 
-Flow.prototype.eval = function (task, cb) {
+Flow.prototype.eval = function(task, cb) {
   cb = cb || noop
 
   var val = this[task]
@@ -85,13 +85,13 @@ Flow.prototype.eval = function (task, cb) {
   return this
 }
 
-function evaluate (instance, task, def, cb) {
+function evaluate(instance, task, def, cb) {
   if (def.layer) instance = find(instance, def.layer)
 
   var done = false
     , callbacks
 
-  function ondone (err, val) {
+  function ondone(err, val) {
     if (done) return printDoubleCallbackWarning(task, err)
     done = true
     if (err != null) {
@@ -118,13 +118,13 @@ function evaluate (instance, task, def, cb) {
   evalWithDeps(instance, def, new Array(def.deps.length), 0, ondone)
 
   if (!done) {
-    instance['_ondone_' + task] = function (fn) {
+    instance['_ondone_' + task] = function(fn) {
       (callbacks || (callbacks = [])).push(fn)
     }
   }
 }
 
-function find (i, layer) {
+function find(i, layer) {
   var top = i
   while (i._layer && (i._layer != layer || !i.hasOwnProperty('_layer'))) {
     i = i.__proto__
@@ -132,7 +132,7 @@ function find (i, layer) {
   return i._layer == layer ? i : top
 }
 
-function evalWithDeps (instance, def, deps, start, ondone) {
+function evalWithDeps(instance, def, deps, start, ondone) {
   var sync = true
   for (var i = start; i < def.deps.length; i++) {
     var dep = def.deps[i]
@@ -151,7 +151,7 @@ function evalWithDeps (instance, def, deps, start, ondone) {
 
     var done = false
 
-    instance.eval(dep, function (err, val) {
+    instance.eval(dep, function(err, val) {
       if (err) return ondone(err, '__DEP__')
       done = true
       deps[i] = val
@@ -164,7 +164,7 @@ function evalWithDeps (instance, def, deps, start, ondone) {
   exec(instance, def, deps, ondone)
 }
 
-function exec (instance, def, deps, ondone) {
+function exec(instance, def, deps, ondone) {
   var ret
   try {
     ret = def.fn.apply(instance, deps)
@@ -175,7 +175,7 @@ function exec (instance, def, deps, ondone) {
   if (def.sync) ondone(null, ret)
 }
 
-function printDoubleCallbackWarning (task, err) {
+function printDoubleCallbackWarning(task, err) {
   var msg = 'Callback for the task `' + task + '` was called two times'
   if (err) {
     msg += '\n'
