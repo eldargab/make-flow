@@ -1,93 +1,69 @@
 # make-flow
 
-This utility suggests control flow ideal for a particular but quite common use case
-were your computation has to deal with lots of interdependent intermediate values.
-For example:
+Generally, callback hell problem arises when there is a bunch
+of interdependent async computations. Rather then trying to emulate
+sync control flow with verious funky utils we could be declarative
+and specify not `HOW` to compute, but `WHAT` to compute. For example:
 
 ```javascript
-var Flow = require('make-flow')
-
-var flow = Flow()
-.def('a', function() {
+def('a', function() {
   return 'a'
 })
-.def('b', function(a) {
-  return a + 'b'
+
+def('b', function(a) {
+  return 'b'
 })
-.def('ab', function(a, b) {
+
+def('ab', function(a, b) {
   return a + b
 })
 ```
+...
 
-Above we have a definition of `ab` computation. It's ideal. There is no accidental
-complexity, nothing we can cut off. It describes `what` without
-messing it with `how`. That's why asynchrony breaks nothing:
-
-```javascript
-flow.def('a', function(done) { // `done` is a special case name meaning node style callback
-  setTimeout(function() {
-    done(null, 'a')
-  })
-})
-```
 
 ## Usage
 
-Evaluate `ab`:
-
-``` javascript
-flow.eval('ab', function(err, ab) {
-})
-```
-
-Seeding with input:
-
-```javascript
-flow
-.run() // create next level instance to avoid clobbering of original definition
-.set('a', 'a') // seed with already evaluated value
-.eval('ab', cb)
-```
+TBD...
 
 ### Layers
 
-Sometimes our computations have to deal with values from several runtime levels.
-That's how `make-flow` can do it:
+`make-flow` also allows to link computations from various runtime layers:
 
 ```javascript
-var fn = Flow()
-.layer('app') // mark current instance to be app level
-.at('app', function(app) { // everything here should be bound to app level instance
+var app = Flow()
+app.layer('app') // mark current instance to be app level
+app.at('app', function () {
+  app.def('config', function (done) {
+    readJson('config.json', done)
+  })
+  app.def('db', function (config) {
+    return require('monk')(config.connection_string)
+  })
+})
+app.def('session', function (db, req, done) {
+  db.loadSession(req.cookie.session, done)
+})
+app.def('user', function (db, session, done) {
+  db.loadUser(session.username, done)
+})
+// ...
+http.createServer(function (req, res) {
   app
-  .def('config_json', function(done) {
-    fs.readFile('config.json', 'utf8', done)
-  })
-  .def('cfg', function(config_json) {
-    return JSON.parse(config_json)
-  })
-  .def('db', function(cfg) {
-    return new Db(cfg.connectionString)
-  })
-  .def('user', function(db, cfg, done) {
-    db.getUser(cfg.user, done)
-  })
+  .run() // create next level instance
+  .layer('request')
+  .set('req', req) // seed
+  .set('res', res)
+  .eval('some task')
 })
-.def('editor', function(db, page, done) {
-  db.getPageEditor(page, done)
-})
-.def('canEdit', function(editor, user) {
-  return editor.id == user.id
-})
-
-function canEdit(page, cb) {
-  fn.run().set('page', page).eval('canEdit', cb)
-}
 ```
 
-Another way to attach a value to a certain level is:
+In the above example `config` and `db` will be evaluated only once,
+not for each incoming request.
+
+Another way to attach a task to a certain level is:
 
 ```javascript
-flow.def('level', 'name', fn)
+app.def('level', 'name', fn)
 ```
 
 ### Error handling
@@ -103,7 +79,7 @@ Flow().def('foo', function() {
 })
 
 Flow().def('bar', function(done) {
-  Flow.def('baz', function() {throw new Error('ups')})
+  Flow().def('baz', function() {throw new Error('ups')})
     .eval('baz', done)
 }).eval('bar', function(err) {
   err._task.should.equal('bar')
@@ -132,7 +108,7 @@ component install eldargab/make-flow
 ## Related
 
 [easy-app](https://github.com/eldargab/easy-app) is a simple and powerful
-container for substantial applications with the same core ideas.
+container with the same core ideas.
 
 ## License
 
