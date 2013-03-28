@@ -11,7 +11,7 @@ describe('make-flow', function () {
   })
 
   describe('Constructor', function () {
-    it('Should work as factory', function () {
+    it('Should work as a factory', function () {
       Flow().should.be.an.instanceOf(Flow)
     })
   })
@@ -27,7 +27,7 @@ describe('make-flow', function () {
       })
     })
 
-    it('Should treat task with <done> argument as async', function (done) {
+    it('Should treat task with `done` argument as async', function (done) {
       var end
       app.def('foo', function (done) {
         end = done
@@ -39,7 +39,7 @@ describe('make-flow', function () {
       end(null, 'ok')
     })
 
-    it('Should call callback with <this> set to <app>', function () {
+    it('Should call callback with `this` set to `app`', function () {
       app.def('foo', function () {
         return 'bar'
       }).eval('foo', function () {
@@ -54,7 +54,7 @@ describe('make-flow', function () {
       }).eval('foo')
     })
 
-    it('Should store result in <this[task_name]>', function () {
+    it('Should store result in `this[task_name]`', function () {
       app.def('a', function () {
         return 'b'
       })
@@ -63,12 +63,12 @@ describe('make-flow', function () {
       app.a.should.equal('b')
     })
 
-    it('Should set <this[task_name]> to <null> when the result is <undefined>', function () {
+    it('Should set `this[task_name]` to `null` when the result is `undefined`', function () {
       app.def('undefined', function () {}).eval('undefined')
       should.ok(app['undefined'] === null)
     })
 
-    it('Should not call task function when <this[task_name]> is not <undefined>', function (done) {
+    it('Should not call task function when `this[task_name]` is not `undefined`', function (done) {
       app.hello = 10
       app.def('hello', log.fn('hello'))
       app.eval('hello', function (err, hello) {
@@ -114,8 +114,6 @@ describe('make-flow', function () {
       app.eval('bar', function (err) {
         err.message.should.match(/bar/)
         err.message.should.match(/not defined/)
-        err._task.should.equal('bar')
-        err._stack.should.equal('bar')
         done()
       })
     })
@@ -160,7 +158,7 @@ describe('make-flow', function () {
     })
 
     describe('.at(layer, fn)', function () {
-      it('Should bound all tasks to <layer>', function () {
+      it('Should bound all tasks to `layer`', function () {
         app.at('app', function (fn) {
           fn.def('foo', function () {
             return 'foo'
@@ -186,11 +184,12 @@ describe('make-flow', function () {
         req.foo.should.equal('foo')
       })
 
-      it('Should return <this>', function () {
+      it('Should return `this`', function () {
         app.at('foo', function () {}).should.equal(app)
       })
     })
   })
+
   describe('Error handling', function () {
     it('Should catch task exceptions', function (done) {
       app.def('hello', function () {
@@ -217,7 +216,7 @@ describe('make-flow', function () {
           throw 'foo'
         }).eval('foo', function (err) {
           err.should.be.an.instanceof(Error)
-          err.message.should.equal('foo')
+          err.orig.should.equal('foo')
           done()
         })
       })
@@ -228,12 +227,18 @@ describe('make-flow', function () {
             app
             .def('foo', function () {
               throw new Error('error')
-            }).def('bar', function (foo) {
-            }).eval('bar', function (err) {
+            })
+            .def('bar', function (foo) {})
+            .def('baz', function (foo) {})
+            .eval('bar', function (err) {
               err._task.should.equal('foo')
-              done()
+              this.eval('baz', function(err) {
+                err._task.should.equal('foo')
+                done()
+              })
             })
           })
+
           it('External error case', function (done) {
             app.def('foo', function () {
               var err = new Error('error')
@@ -257,6 +262,7 @@ describe('make-flow', function () {
               done()
             })
           })
+
           it('with previous value', function (done) {
             app.def('foo', function () {
               var err = new Error('hi')

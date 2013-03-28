@@ -8,6 +8,11 @@ function Flow () {
   }
 }
 
+Flow.prototype.set = function (name, val) {
+  this[name] = val
+  return this
+}
+
 Flow.prototype.def = function (layer, task, deps, fn) {
   if (typeof task != 'string') { // allow layer omission
     fn = deps
@@ -27,39 +32,25 @@ Flow.prototype.def = function (layer, task, deps, fn) {
   this['_task_' + task] = {
     fn: fn,
     deps: deps,
+    sync: !~deps.indexOf('done'),
     layer: layer || this._at
   }
+
   return this
 }
 
 Flow.prototype.layer = function (name) {
-  this.name = name
+  this._layer = name
   return this
 }
 
 Flow.prototype.at = function (layer, fn) {
+  var prev = this._at
   this._at = layer
   try {
     fn(this)
   } finally {
-    this._at = null
-  }
-  return this
-}
-
-Flow.prototype.eval = function (task, cb) {
-  if (this[task] !== undefined) {
-    this[task] instanceof Error
-      ? cb.call(this, this[task])
-      : cb.call(this, null, this[task])
-    return this
-  }
-  var eval = '_evaluation_' + task
-  if (!this[eval]) {
-    new Evaluation(this, cb)
-      .task(task)
-  } else {
-    cb && this[eval].ondone(cb)
+    this._at = prev
   }
   return this
 }
@@ -68,124 +59,130 @@ Flow.prototype.run = function (task, cb) {
   return Object.create(this)
 }
 
-Flow.prototype.set = function (name, val) {
-  this[name] = val
+Flow.prototype.eval = function (task, cb) {
+  cb = cb || noop
+
+  var val = this[task]
+  if (val !== undefined) {
+    val instanceof Error
+      ? cb.call(this, val)
+      : cb.call(this, null, val)
+    return this
+  }
+
+  var ondone = this['_ondone_' + task]
+  if (ondone) {
+    ondone(cb)
+    return this
+  }
+
+  var def = this['_task_' + task]
+  if (!def) {
+    cb.call(this, new Error('Task ' + task + ' is not defined'))
+    return this
+  }
+  evaluate(this, task, def, cb)
   return this
 }
 
+function evaluate (instance, task, def, cb) {
+  if (def.layer) instance = find(instance, def.layer)
 
-function Evaluation (flow, cb) {
-  this.flow = flow
-  this.callbacks = []
-  this.deps = []
-  cb && this.ondone(cb)
-}
+  var done = false
+    , callbacks
 
-Evaluation.prototype.ondone = function (cb) {
-  this.callbacks.push(cb)
-}
-
-Evaluation.prototype.task = function (name) {
-  this.name = name
-  this.t = this.flow['_task_' + name]
-  if (!this.t) return this.unknownTask()
-  this.setApp()
-  this.app['_eval_' + this.name] = this
-  this.evalDeps(0)
-}
-
-Evaluation.prototype.setApp = function () {
-  if (!this.t.layer) return this.app = this.flow
-  var app = this.flow
-  while (app.name && (app.name != this.t.layer || !app.hasOwnProperty('name'))) {
-    app = app.__proto__
+  function ondone (err, val) {
+    if (done) return printDoubleCallbackWarning(task, err)
+    done = true
+    if (err != null) {
+      if (!(err instanceof Error)) {
+        var orig = err
+        err = new Error('None error object was throwed')
+        err.orig = orig
+      }
+      if (val != '__DEP__') err._task = task
+      err._stack = err._stack ? task + '.' + err._stack : task
+      val = err
+    }
+    if (val === undefined) val = null
+    instance[task] = val
+    instance['_ondone_' + task] = null // cleanup
+    cb.call(instance, err, val)
+    if (callbacks) {
+      for (var i = 0; i < callbacks.length; i++) {
+        callbacks[i].call(instance, err, val)
+      }
+    }
   }
-  this.app = app.name == this.t.layer ? app : this.flow
+
+  evalWithDeps(instance, def, new Array(def.deps.length), 0, ondone)
+
+  if (!done) {
+    instance['_ondone_' + task] = function (fn) {
+      (callbacks || (callbacks = [])).push(fn)
+    }
+  }
 }
 
-Evaluation.prototype.evalDeps = function (index) {
-  var sync = true,
-      self = this,
-      deps = this.t.deps
+function find (i, layer) {
+  var top = i
+  while (i._layer && (i._layer != layer || !i.hasOwnProperty('_layer'))) {
+    i = i.__proto__
+  }
+  return i._layer == layer ? i : top
+}
 
-  while (sync) {
-    var dep = deps[index]
-    if (!dep) return this.exec()
+function evalWithDeps (instance, def, deps, start, ondone) {
+  var sync = true
+  for (var i = start; i < def.deps.length; i++) {
+    var dep = def.deps[i]
 
     if (dep == 'done') {
-      this.async = true
-      this.deps[index++] = this.done.bind(this)
+      deps[i] = ondone
       continue
     }
 
-    var val = this.app[dep]
+    var val = instance[dep]
     if (val !== undefined) {
-      if (val instanceof Error) return this.end(val)
-      this.deps[index++] = val
+      if (val instanceof Error) return ondone(val, '__DEP__')
+      deps[i] = val
       continue
     }
 
     var done = false
 
-    this.app.eval(dep, function (err, val) {
-      if (err) return self.end(err)
+    instance.eval(dep, function (err, val) {
+      if (err) return ondone(err, '__DEP__')
       done = true
-      self.deps[index++] = val
+      deps[i] = val
       if (sync) return
-      self.evalDeps(index)
+      evalWithDeps(instance, def, deps, i, ondone)
     })
-
     sync = done
+    if (!sync) return
   }
+  exec(instance, def, deps, ondone)
 }
 
-Evaluation.prototype.exec = function () {
+function exec (instance, def, deps, ondone) {
+  var ret
   try {
-    if (this.async) {
-      this.t.fn.apply(this.app, this.deps)
-    } else {
-      this.done(null, this.t.fn.apply(this.app, this.deps))
-    }
+    ret = def.fn.apply(instance, deps)
   } catch (e) {
-    this.done(e)
-  }
-}
-
-Evaluation.prototype.done = function (err, val) {
-  if (this.ended) {
-    console.error('Task <' + this.name + '> called its callback twice')
-    if (err) {
-      console.error('It seems that it happened due to exception in a task callback:')
-      err.stack ? console.error(err.stack) : console.error(String(err))
-    }
+    ondone(e)
     return
   }
-  this.ended = true
+  if (def.sync) ondone(null, ret)
+}
 
-  if (err != null) {
-    if (!(err instanceof Error)) {
-      err = new Error(String(err))
-    }
-    err._task = this.name
-    err._stack = err._stack ? this.name + '.' + err._stack : this.name
-    this.app[this.name] = err
-  } else {
-    val = val === undefined ? null : val
-    this.app[this.name] = val
+function printDoubleCallbackWarning (task, err) {
+  var msg = 'Callback for the task `' + task + '` was called two times'
+  if (err) {
+    msg += '\n'
+    msg += 'Perhaps it is happened due to exception in an eval callback'
+    msg += '\n' + (err.stack || String(err))
   }
-  this.end(err, val)
+  console.error(msg)
 }
 
-Evaluation.prototype.unknownTask = function () {
-  var err = new Error('Task <' + this.name + '> is not defined.')
-  err._task = err._stack = this.name
-  this.end(err)
-}
-
-Evaluation.prototype.end = function (err, val) {
-  this.ended = true
-  if (this.app) this.app['_evaluation_' + this.name] = null // cleanup
-  for (var i = 0; i < this.callbacks.length; i++) {
-    this.callbacks[i].call(this.flow, err, val)
-  }
-}
+function noop() {}
