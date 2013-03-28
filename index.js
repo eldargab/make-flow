@@ -55,9 +55,15 @@ Flow.prototype.at = function(layer, fn) {
   return this
 }
 
-Flow.prototype.run = function(task, cb) {
-  return Object.create(this)
-}
+Flow.prototype.run = {}.__proto__
+  ? function() {
+    return {__proto__: this}
+  }
+  : function() {
+    function Klass() {}
+    Klass.prototype = this
+    return new Klass
+  }
 
 Flow.prototype.eval = function(task, cb) {
   cb = cb || noop
