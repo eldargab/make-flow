@@ -3,7 +3,7 @@
   "version": "0.4.1",
   "description": "Make style control flow. Good for complex functions.",
   "scripts": {
-    "test": "mocha -R spec"
+    "test": "mocha"
   },
   "repository": {
     "type": "git",
@@ -21,7 +21,8 @@
   "devDependencies": {
     "test-log": "*",
     "mocha": "*",
-    "should": "*"
+    "should": "*",
+    "benchmark": "*"
   },
   "author": "Eldar Gabdullin <eldargab@gmail.com>",
   "license": "MIT"
