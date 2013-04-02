@@ -1,7 +1,7 @@
 {
   "name": "make-flow",
-  "version": "0.4.1",
-  "description": "Make style control flow. Good for complex functions.",
+  "version": "0.5.0",
+  "description": "Make style control flow",
   "scripts": {
     "test": "mocha"
   },
@@ -12,7 +12,8 @@
   "keywords": [
     "async",
     "make",
-    "control flow",
+    "control",
+    "flow",
     "util"
   ],
   "dependencies": {
