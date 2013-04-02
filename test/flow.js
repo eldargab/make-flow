@@ -131,6 +131,28 @@ describe('make-flow', function() {
     })
   })
 
+  describe('.fn(fn)', function() {
+    it('Should create a "main" function', function(done) {
+      var fn = app
+      .def('a', function() {
+        return 'a'
+      })
+      .def('ab', function(a, b) {
+        return a + b
+      })
+      .fn(function(b, cb) {
+        this.b = b
+        this.eval('ab', cb)
+      })
+
+      fn('b', function(err, ab) {
+        ab.should.equal('ab')
+        should.not.exist(app.ab)
+        done()
+      })
+    })
+  })
+
   describe('Layers', function() {
     it('Task should be bound to its layer', function() {
       app

@@ -65,6 +65,13 @@ Flow.prototype.run = {}.__proto__
     return new Klass
   }
 
+Flow.prototype.fn = function(fn) {
+  var self = this
+  return function() {
+    fn.apply(self.run(), arguments)
+  }
+}
+
 Flow.prototype.eval = function(task, cb) {
   cb = cb || noop
 
