@@ -124,7 +124,8 @@ describe('make-flow', function() {
       app.def('foo', function() {
         return 'bar'
       })
-      var New = app.run().eval('foo')
+      var New = app.run()
+      New.eval('foo')
       New.foo.should.equal('bar')
       should.not.exist(app.foo)
     })

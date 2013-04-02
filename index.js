@@ -73,22 +73,21 @@ Flow.prototype.eval = function(task, cb) {
     val instanceof Error
       ? cb.call(this, val)
       : cb.call(this, null, val)
-    return this
+    return
   }
 
   var ondone = this['_ondone_' + task]
   if (ondone) {
     ondone(cb)
-    return this
+    return
   }
 
   var def = this['_task_' + task]
   if (!def) {
     cb.call(this, new Error('Task ' + task + ' is not defined'))
-    return this
+    return
   }
   evaluate(this, task, def, cb)
-  return this
 }
 
 function evaluate(instance, task, def, cb) {
