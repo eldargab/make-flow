@@ -177,15 +177,15 @@ app.def('level', 'name', fn)
 All error objects returned from `.eval` have `._task` and `._stack` properties:
 
 ``` javascript
-Flow().def('foo', function() {
+flow().def('foo', function() {
   throw new Error('ups')
 }).eval('foo', function(err) {
   err._task.should.equal('foo')
   err._stack.should.equal('foo')
 })
 
-Flow().def('bar', function(done) {
-  Flow().def('baz', function() {throw new Error('ups')})
+flow().def('bar', function(done) {
+  flow().def('baz', function() {throw new Error('ups')})
     .eval('baz', done)
 }).eval('bar', function(err) {
   err._task.should.equal('bar')
