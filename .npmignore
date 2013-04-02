@@ -1,2 +1,3 @@
 test/
-component.json
+bench.js
+Makefile
