@@ -8,17 +8,6 @@ function Flow() {
   }
 }
 
-
-Flow.prototype.thisValues = function() {
-  if (this.values.__owner === this) return this.values
-  return this.values = {
-    __proto__: this.__proto__.thisValues(),
-    __owner: this
-  }
-}
-
-Flow.prototype.values = {__owner: Flow.prototype}
-
 Flow.prototype.thisPromises = function() {
   if (this.promises.__owner === this) return this.promises
   return this.promises = {
@@ -41,12 +30,8 @@ Flow.prototype.tasks = {__owner: Flow.prototype}
 
 
 Flow.prototype.set = function(name, val) {
-  this.thisValues()[name] = val
+  this[name] = val
   return this
-}
-
-Flow.prototype.get = function(name) {
-  return this.values[name]
 }
 
 Flow.prototype.def = function(layer, task, deps, fn) {
@@ -105,7 +90,7 @@ Flow.prototype.fn = function(fn) {
 Flow.prototype.eval = function(task, cb) {
   cb = cb || noop
 
-  var val = this.values[task]
+  var val = this[task]
   if (val !== undefined) {
     val instanceof Error
       ? cb(val)
@@ -147,7 +132,7 @@ function evaluate(app, name, t, cb) {
 
     if (val === undefined) val = null
 
-    app.thisValues()[name] = val
+    app[name] = val
 
     if (app.promises.__owner === app) {
       app.promises[name] = null // cleanup
@@ -175,7 +160,7 @@ function evalWithDeps(app, t, deps, start, ondone) {
       continue
     }
 
-    var val = app.values[dep]
+    var val = app[dep]
     if (val !== undefined) {
       if (val instanceof Error) return ondone(val, '__DEP__')
       deps[i] = val

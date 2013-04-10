@@ -72,6 +72,15 @@ describe('make-flow', function() {
       log.should.equal('foo')
     })
 
+    it('Should store result in `this[task_name]`', function() {
+      app.def('a', function() {
+        return 'b'
+      })
+      should.ok(app.a === undefined)
+      app.eval('a')
+      app.a.should.equal('b')
+    })
+
     it('Should support multiple simultaneous eval requests', function() {
       var fooDone
 
@@ -134,20 +143,9 @@ describe('make-flow', function() {
     })
   })
 
-  describe('.get(task)', function() {
-    it('Should return task value', function() {
-      app.def('a', function() {
-        return 'b'
-      })
-      should.not.exist(app.get('a'))
-      app.eval('a')
-      app.get('a').should.equal('b')
-    })
-  })
-
   describe('.set(task, val)', function() {
     it('Should set task value', function() {
-      app.set('a', 'b').get('a').should.equal('b')
+      app.set('a', 'b').a.should.equal('b')
     })
   })
 
@@ -158,8 +156,8 @@ describe('make-flow', function() {
       })
       var New = app.run()
       New.eval('foo')
-      New.get('foo').should.equal('bar')
-      should.not.exist(app.get('foo'))
+      New.foo.should.equal('bar')
+      should.not.exist(app.foo)
     })
   })
 
@@ -173,13 +171,13 @@ describe('make-flow', function() {
         return a + b
       })
       .fn(function(b, cb) {
-        this.set('b', b)
+        this.b = b
         this.eval('ab', cb)
       })
 
       fn('b', function(err, ab) {
         ab.should.equal('ab')
-        should.not.exist(app.get('ab'))
+        should.not.exist(app.ab)
         done()
       })
     })
@@ -203,13 +201,13 @@ describe('make-flow', function() {
 
       req.eval('response')
 
-      req.get('response').should.equal('usersetup')
-      req.get('user').should.equal('user')
-      req.get('setup').should.equal('setup')
+      req.response.should.equal('usersetup')
+      req.user.should.equal('user')
+      req.setup.should.equal('setup')
 
-      app.get('setup').should.equal('setup')
-      should.not.exist(app.get('user'))
-      should.not.exist(app.get('response'))
+      app.setup.should.equal('setup')
+      should.not.exist(app.user)
+      should.not.exist(app.response)
     })
 
     describe('.at(layer, fn)', function() {
@@ -221,7 +219,8 @@ describe('make-flow', function() {
         })
         app.layer('app')
         app.run().eval('foo')
-        app.get('foo').should.equal('foo')
+        app.should.have.ownProperty('foo')
+        app.foo.should.equal('foo')
       })
 
       it('Should not clobber layer specified explicitly', function() {
@@ -233,8 +232,9 @@ describe('make-flow', function() {
         app.layer('app')
         var req = app.run().layer('req')
         req.run().eval('foo')
-        should.not.exist(app.get('foo'))
-        req.get('foo').should.equal('foo')
+        app.should.not.have.property('foo')
+        req.should.have.ownProperty('foo')
+        req.foo.should.equal('foo')
       })
 
       it('Should return `this`', function() {

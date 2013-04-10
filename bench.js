@@ -33,8 +33,8 @@ app
 })
 
 var fn = app.fn(function(a, b, cb) {
-  this.set('a', a)
-  this.set('b', b)
+  this.a = a
+  this.b = b
   this.eval('ab', cb)
 })
 
