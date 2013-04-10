@@ -32,6 +32,12 @@ app
   done(null, bone + async + ab)
 })
 
+var fn = app.fn(function(a, b, cb) {
+  this.set('a', a)
+  this.set('b', b)
+  this.eval('ab', cb)
+})
+
 function noop() {}
 
 
@@ -47,6 +53,10 @@ suite.add('5 deps', function() {
 
 suite.add('computation', function() {
   app.run().eval('computation', noop)
+})
+
+suite.add('function', function() {
+  fn('A', 'B', noop)
 })
 
 suite.on('cycle', function(ev, bench) {
