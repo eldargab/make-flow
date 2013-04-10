@@ -39,43 +39,11 @@ describe('make-flow', function() {
       end(null, 'ok')
     })
 
-    it('Should call callback with `this` set to `app`', function() {
-      app.def('foo', function() {
-        return 'bar'
-      }).eval('foo', function() {
-        this.should.equal(app)
-      })
-    })
-
     it('Should call task with `this` set to app', function(done) {
       app.def('foo', function() {
         this.should.equal(app)
         done()
       }).eval('foo')
-    })
-
-    it('Should store result in `this[task_name]`', function() {
-      app.def('a', function() {
-        return 'b'
-      })
-      should.ok(app.a === undefined)
-      app.eval('a')
-      app.a.should.equal('b')
-    })
-
-    it('Should set `this[task_name]` to `null` when the result is `undefined`', function() {
-      app.def('undefined', function() {}).eval('undefined')
-      should.ok(app['undefined'] === null)
-    })
-
-    it('Should not call task function when `this[task_name]` is not `undefined`', function(done) {
-      app.hello = 10
-      app.def('hello', log.fn('hello'))
-      app.eval('hello', function(err, hello) {
-        hello.should.equal(10)
-        log.should.be.empty
-        done()
-      })
     })
 
     it('Should evaluate all task dependencies before evaluating task itself', function() {
@@ -126,8 +94,8 @@ describe('make-flow', function() {
       })
       var New = app.run()
       New.eval('foo')
-      New.foo.should.equal('bar')
-      should.not.exist(app.foo)
+      New.get('foo').should.equal('bar')
+      should.not.exist(app.get('foo'))
     })
   })
 
@@ -141,13 +109,13 @@ describe('make-flow', function() {
         return a + b
       })
       .fn(function(b, cb) {
-        this.b = b
+        this.set('b', b)
         this.eval('ab', cb)
       })
 
       fn('b', function(err, ab) {
         ab.should.equal('ab')
-        should.not.exist(app.ab)
+        should.not.exist(app.get('ab'))
         done()
       })
     })
@@ -171,13 +139,13 @@ describe('make-flow', function() {
 
       req.eval('response')
 
-      req.response.should.equal('usersetup')
-      req.user.should.equal('user')
-      req.setup.should.equal('setup')
+      req.get('response').should.equal('usersetup')
+      req.get('user').should.equal('user')
+      req.get('setup').should.equal('setup')
 
-      app.setup.should.equal('setup')
-      should.not.exist(app.user)
-      should.not.exist(app.response)
+      app.get('setup').should.equal('setup')
+      should.not.exist(app.get('user'))
+      should.not.exist(app.get('response'))
     })
 
     describe('.at(layer, fn)', function() {
@@ -189,8 +157,7 @@ describe('make-flow', function() {
         })
         app.layer('app')
         app.run().eval('foo')
-        app.should.have.ownProperty('foo')
-        app.foo.should.equal('foo')
+        app.get('foo').should.equal('foo')
       })
 
       it('Should not clobber layer specified explicitly', function() {
@@ -202,9 +169,8 @@ describe('make-flow', function() {
         app.layer('app')
         var req = app.run().layer('req')
         req.run().eval('foo')
-        app.should.not.have.property('foo')
-        req.should.have.ownProperty('foo')
-        req.foo.should.equal('foo')
+        should.not.exist(app.get('foo'))
+        req.get('foo').should.equal('foo')
       })
 
       it('Should return `this`', function() {
@@ -255,7 +221,7 @@ describe('make-flow', function() {
             .def('baz', function(foo) {})
             .eval('bar', function(err) {
               err._task.should.equal('foo')
-              this.eval('baz', function(err) {
+              app.eval('baz', function(err) {
                 err._task.should.equal('foo')
                 done()
               })

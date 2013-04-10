@@ -8,9 +8,45 @@ function Flow() {
   }
 }
 
+
+Flow.prototype.thisValues = function() {
+  if (this.values.__owner === this) return this.values
+  return this.values = {
+    __proto__: this.__proto__.thisValues(),
+    __owner: this
+  }
+}
+
+Flow.prototype.values = {__owner: Flow.prototype}
+
+Flow.prototype.thisPromises = function() {
+  if (this.promises.__owner === this) return this.promises
+  return this.promises = {
+    __proto__: this.__proto__.thisPromises(),
+    __owner: this
+  }
+}
+
+Flow.prototype.promises = {__owner: Flow.prototype}
+
+Flow.prototype.thisTasks = function() {
+  if (this.tasks.__owner === this) return this.tasks
+  return this.tasks = {
+    __proto__: this.__proto__.thisTasks(),
+    __owner: this
+  }
+}
+
+Flow.prototype.tasks = {__owner: Flow.prototype}
+
+
 Flow.prototype.set = function(name, val) {
-  this[name] = val
+  this.thisValues()[name] = val
   return this
+}
+
+Flow.prototype.get = function(name) {
+  return this.values[name]
 }
 
 Flow.prototype.def = function(layer, task, deps, fn) {
@@ -26,10 +62,10 @@ Flow.prototype.def = function(layer, task, deps, fn) {
     deps = fn.deps
   }
 
-  fn = fn || function noop() {}
+  fn = fn || noop
   deps = deps || parseArgs(fn)
 
-  this['_task_' + task] = {
+  this.thisTasks()[task] = {
     fn: fn,
     deps: deps,
     sync: !~deps.indexOf('done'),
@@ -55,15 +91,9 @@ Flow.prototype.at = function(layer, fn) {
   return this
 }
 
-Flow.prototype.run = {}.__proto__
-  ? function() {
-    return {__proto__: this}
-  }
-  : function() {
-    function Klass() {}
-    Klass.prototype = this
-    return new Klass
-  }
+Flow.prototype.run = function() {
+  return {__proto__: this}
+}
 
 Flow.prototype.fn = function(fn) {
   var self = this
@@ -75,86 +105,77 @@ Flow.prototype.fn = function(fn) {
 Flow.prototype.eval = function(task, cb) {
   cb = cb || noop
 
-  var val = this[task]
+  var val = this.values[task]
   if (val !== undefined) {
     val instanceof Error
-      ? cb.call(this, val)
-      : cb.call(this, null, val)
+      ? cb(val)
+      : cb(null, val)
     return
   }
 
-  var ondone = this['_ondone_' + task]
-  if (ondone) {
-    ondone(cb)
-    return
-  }
+  var promise = this.promises[task]
+  if (promise) return promise.ondone(cb)
 
-  var def = this['_task_' + task]
-  if (!def) {
-    cb.call(this, new Error('Task ' + task + ' is not defined'))
-    return
-  }
-  evaluate(this, task, def, cb)
+  var t = this.tasks[task]
+  if (!t) return cb(new Error('Task ' + task + ' is not defined'))
+
+  evaluate(this, task, t, cb)
 }
 
-function evaluate(instance, task, def, cb) {
-  if (def.layer) instance = find(instance, def.layer)
+function evaluate(app, name, t, cb) {
+  if (t.layer) app = find(app, t.layer)
 
   var done = false
-    , callbacks
+    , promise
 
   function ondone(err, val) {
-    if (done) return printDoubleCallbackWarning(task, err)
+    if (done) return printDoubleCallbackWarning(name, err)
     done = true
     if (err != null) {
-      if (!(err instanceof Error)) {
+     if (!(err instanceof Error)) {
         var orig = err
         err = new Error('None error object was throwed')
         err.orig = orig
       }
-      if (val != '__DEP__') err._task = task
-      err._stack = err._stack ? task + '.' + err._stack : task
+      if (val != '__DEP__') {
+        err._task = name
+        err._layer = app._layer
+      }
+      err._stack = err._stack ? name + '.' + err._stack : name
       val = err
     }
+
     if (val === undefined) val = null
-    instance[task] = val
-    instance['_ondone_' + task] = null // cleanup
-    cb.call(instance, err, val)
-    if (callbacks) {
-      for (var i = 0; i < callbacks.length; i++) {
-        callbacks[i].call(instance, err, val)
-      }
+
+    app.thisValues()[name] = val
+
+    if (app.promises.__owner === app) {
+      app.promises[name] = null // cleanup
     }
+
+    cb(err, val)
+
+    if (promise) promise.resolve(err, val)
   }
 
-  evalWithDeps(instance, def, new Array(def.deps.length), 0, ondone)
+  evalWithDeps(app, t, new Array(t.deps.length), 0, ondone)
 
   if (!done) {
-    instance['_ondone_' + task] = function(fn) {
-      (callbacks || (callbacks = [])).push(fn)
-    }
+    app.thisPromises()[name] = promise = new Promise
   }
 }
 
-function find(i, layer) {
-  var top = i
-  while (i._layer && (i._layer != layer || !i.hasOwnProperty('_layer'))) {
-    i = i.__proto__
-  }
-  return i._layer == layer ? i : top
-}
-
-function evalWithDeps(instance, def, deps, start, ondone) {
+function evalWithDeps(app, t, deps, start, ondone) {
   var sync = true
-  for (var i = start; i < def.deps.length; i++) {
-    var dep = def.deps[i]
+  for (var i = start; i < t.deps.length; i++) {
+    var dep = t.deps[i]
 
     if (dep == 'done') {
       deps[i] = ondone
       continue
     }
 
-    var val = instance[dep]
+    var val = app.values[dep]
     if (val !== undefined) {
       if (val instanceof Error) return ondone(val, '__DEP__')
       deps[i] = val
@@ -163,28 +184,50 @@ function evalWithDeps(instance, def, deps, start, ondone) {
 
     var done = false
 
-    instance.eval(dep, function(err, val) {
+    app.eval(dep, function(err, val) {
       if (err) return ondone(err, '__DEP__')
       done = true
       deps[i] = val
       if (sync) return
-      evalWithDeps(instance, def, deps, i, ondone)
+      evalWithDeps(app, t, deps, i + 1, ondone)
     })
     sync = done
     if (!sync) return
   }
-  exec(instance, def, deps, ondone)
+  exec(app, t, deps, ondone)
 }
 
-function exec(instance, def, deps, ondone) {
+function exec(app, t, deps, ondone) {
   var ret
   try {
-    ret = def.fn.apply(instance, deps)
+    ret = t.fn.apply(app, deps)
   } catch (e) {
     ondone(e)
     return
   }
-  if (def.sync) ondone(null, ret)
+  if (t.sync) ondone(null, ret)
+}
+
+function find(app, layer) {
+  var top = app
+  while (app._layer && (app._layer != layer || !app.hasOwnProperty('_layer'))) {
+    app = app.__proto__
+  }
+  return app._layer == layer ? app : top
+}
+
+function Promise() { }
+
+Promise.prototype.ondone = function(cb) {
+  this.callbacks = this.callbacks || []
+  this.callbacks.push(cb)
+}
+
+Promise.prototype.resolve = function(err, val) {
+  if (!this.callbacks) return
+  for (var i = 0; i < this.callbacks.length; i++) {
+    this.callbacks[i](err, val)
+  }
 }
 
 function printDoubleCallbackWarning(task, err) {
