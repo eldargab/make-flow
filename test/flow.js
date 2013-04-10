@@ -46,6 +46,53 @@ describe('make-flow', function() {
       }).eval('foo')
     })
 
+   it('Should pass task arguments', function(done) {
+      app
+        .def('foo', function() {
+          return 'foo'
+        })
+        .def('bar', function() {
+          return 'bar'
+        })
+        .def('foobar', function(foo, bar) {
+          foo.should.equal('foo')
+          bar.should.equal('bar')
+          done()
+        })
+        .eval('foobar')
+    })
+
+    it('Should not evaluate task twice', function() {
+      app.def('foo', function() {
+        log('foo')
+      })
+      app.eval('foo')
+      log.should.equal('foo')
+      app.eval('foo')
+      log.should.equal('foo')
+    })
+
+    it('Should support multiple simultaneous eval requests', function() {
+      var fooDone
+
+      app.def('foo', function(done) {
+        log('foo')
+        fooDone = done
+      })
+
+      app.eval('foo', function() {
+        log('first')
+      })
+
+      app.eval('foo', function() {
+        log('second')
+      })
+
+      fooDone()
+
+      log.should.equal('foo first second')
+    })
+
     it('Should evaluate all task dependencies before evaluating task itself', function() {
       var b_end, c_end, d_end
 
@@ -84,6 +131,23 @@ describe('make-flow', function() {
         err.message.should.match(/not defined/)
         done()
       })
+    })
+  })
+
+  describe('.get(task)', function() {
+    it('Should return task value', function() {
+      app.def('a', function() {
+        return 'b'
+      })
+      should.not.exist(app.get('a'))
+      app.eval('a')
+      app.get('a').should.equal('b')
+    })
+  })
+
+  describe('.set(task, val)', function() {
+    it('Should set task value', function() {
+      app.set('a', 'b').get('a').should.equal('b')
     })
   })
 
