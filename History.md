@@ -1,4 +1,11 @@
 
+0.6.0 / 2013-04-11
+==================
+
+  * 2x speed up
+  * change: context for `.eval()` callback is no longer supplied
+  * Dropped support for browsers without `obj.__proto__` property
+
 0.5.0 / 2013-04-02
 ==================
 
