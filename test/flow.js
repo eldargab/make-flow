@@ -10,12 +10,6 @@ describe('make-flow', function() {
     log = Log()
   })
 
-  describe('Constructor', function() {
-    it('Should work as a factory', function() {
-      Flow().should.be.an.instanceOf(Flow)
-    })
-  })
-
   describe('.eval(task, [cb])', function() {
     it('Should call task function', function(done) {
       app.def('foo', function() {
@@ -327,6 +321,33 @@ describe('make-flow', function() {
             })
           })
         })
+      })
+    })
+  })
+
+  describe('Constructor', function() {
+    it('Should work as a factory', function() {
+      Flow().should.be.an.instanceOf(Flow)
+    })
+  })
+
+  describe('.prototype', function() {
+    it('Should be mixable', function(done) {
+      function Klass() {}
+
+      for (var key in Flow.prototype) {
+        Klass.prototype[key] = Flow.prototype[key]
+      }
+
+      new Klass()
+      .def('ab', function(a, b) {
+        return a + b
+      })
+      .set('a', 'a')
+      .set('b', 'b')
+      .eval('ab', function(err, val) {
+        val.should.equal('ab')
+        done()
       })
     })
   })

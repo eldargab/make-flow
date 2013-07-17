@@ -11,7 +11,7 @@ function Flow() {
 Flow.prototype.thisPromises = function() {
   if (this.promises.__owner === this) return this.promises
   return this.promises = {
-    __proto__: this.__proto__.thisPromises(),
+    __proto__: this.__proto__.thisPromises ? this.__proto__.thisPromises() : this.promises,
     __owner: this
   }
 }
@@ -21,7 +21,7 @@ Flow.prototype.promises = {__owner: Flow.prototype}
 Flow.prototype.thisTasks = function() {
   if (this.tasks.__owner === this) return this.tasks
   return this.tasks = {
-    __proto__: this.__proto__.thisTasks(),
+    __proto__: this.__proto__.thisTasks ? this.__proto__.thisTasks() : this.tasks,
     __owner: this
   }
 }
